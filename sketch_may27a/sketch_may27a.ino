@@ -1,0 +1,105 @@
+#include <SoftwareSerial.h>
+
+SoftwareSerial sim(10, 11);
+int _timeout;
+String _buffer;
+String number = "+40744873419";
+int led1 = 2;
+int led2 = 4;
+int led3 = 7;
+int blinkCount1 = 0;
+int blinkCount2 = 0;
+int blinkCount3 = 0;
+bool shouldBlink1 = false;
+bool shouldBlink2 = false;
+bool shouldBlink3 = false;
+
+void setup() {
+  pinMode(led1, OUTPUT);
+  pinMode(led2, OUTPUT);
+  pinMode(led3, OUTPUT);
+  Serial.begin(9600);
+  _buffer.reserve(50);
+  Serial.println("Sistemul a pornit...");
+  sim.begin(9600);
+  delay(1000);
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    String command = Serial.readStringUntil('\n');
+    handleCommand(command);
+  }
+
+  if (shouldBlink1 && blinkCount1 < 30) {
+    digitalWrite(led1, HIGH);
+    delay(150);
+    digitalWrite(led1, LOW);
+    delay(150);
+    blinkCount1++;
+  } else {
+    shouldBlink1 = false;
+    blinkCount1 = 0;
+  }
+
+  if (shouldBlink2 && blinkCount2 < 30) {
+    digitalWrite(led2, HIGH);
+    delay(500);
+    digitalWrite(led2, LOW);
+    delay(500);
+    blinkCount2++;
+  } else {
+    shouldBlink2 = false;
+    blinkCount2 = 0;
+  }
+
+  if (sim.available() > 0) {
+    Serial.write(sim.read());
+  }
+}
+
+void handleCommand(String command) {
+  if (command.startsWith("SEND ")) {
+    SendMessage(command.substring(5));
+  } else if (command.startsWith("CALL")) {
+    callNumber();
+  } else if (command.startsWith("NUMBER ")) {
+    number = command.substring(7);
+  } else if (command.startsWith("BLINK1")) {
+    shouldBlink1 = true;
+  } else if (command.startsWith("BLINK2")) {
+    shouldBlink2 = true;
+  }
+}
+
+void SendMessage(String message) {
+  Serial.println("Se trimite mesajul");
+  sim.println("AT+CMGF=1");
+  delay(200);
+  sim.println("AT+CMGS=\"" + number + "\"\r");
+  delay(200);
+  sim.println(message);
+  delay(100);
+  sim.println((char)26);
+  delay(200);
+  _buffer = _readSerial();
+}
+
+String _readSerial() {
+  _timeout = 0;
+  while (!sim.available() && _timeout < 12000) {
+    delay(13);
+    _timeout++;
+  }
+  if (sim.available()) {
+    return sim.readString();
+  }
+}
+
+void callNumber() {
+  sim.print(F("ATD"));
+  sim.print(number);
+  sim.print(F(";\r\n"));
+  _buffer = _readSerial();
+  Serial.println(_buffer);
+}
